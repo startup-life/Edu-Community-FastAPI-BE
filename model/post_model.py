@@ -163,7 +163,7 @@ async def delete_post(postId: int) -> bool:
         result = False
     return result
 
-async def get_post_list() -> list:
+async def get_post_list(offset: int, limit: int) -> list:
     result = []
     try:
         with get_connection() as conn, conn.cursor() as cur:
@@ -200,7 +200,9 @@ async def get_post_list() -> list:
                 LEFT JOIN file_table AS f ON u.file_id = f.file_id
                 WHERE p.deleted_at IS NULL
                 ORDER BY p.created_at DESC
-                """
+                LIMIT %s OFFSET %s;
+                """,
+                (limit, offset),
             )
             result = cur.fetchall()
     except Exception as e:
