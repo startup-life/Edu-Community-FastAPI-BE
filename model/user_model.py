@@ -1,52 +1,102 @@
-# db.py
 from typing import Optional, Dict, Any, Union
-from database import index
 import pymysql
 from pymysql import MySQLError as Error
-from utils.constant.httpStatusCode import STATUS_CODE, STATUS_MESSAGE
-from starlette.concurrency import run_in_threadpool
+from util.constant.httpStatusCode import STATUS_MESSAGE
 from pymysql.cursors import DictCursor
+from database.index import get_connection
+import bcrypt
 
-def get_connection():
-    """MySQL 연결을 반환 (동기)."""
-    return pymysql.connect(
-        **index.MYSQL_DB_CONFIG,
-        cursorclass=DictCursor,
-        autocommit=False,
-    )
+SALT_ROUNDS = 10
 
-async def db_call(fn, *args, **kwargs):
-    return await run_in_threadpool(fn, *args, **kwargs)
 
-async def signup_user(
-    email: str,
-    password: str,
-    nickname: str,
-    profile_image_path: Optional[str] = None,
-) -> Union[str, Dict[str, Optional[int]], None]:
+async def login_user(email: str, password: str, session_id: str) -> Optional[Dict]:
     conn = None
     try:
         conn = get_connection()
         with conn.cursor() as cur:
-            # 1) 이메일 중복 검사(UNIQUE 제약도 DB에 반드시 설정!)
+            user_sql = "SELECT * FROM user_table WHERE email = %s AND deleted_at IS NULL;"
+            cur.execute(user_sql, (email,))
+            user_row = cur.fetchone()
+
+
+            # 사용자가 없으면 None 반환
+            if not user_row:
+                return None
+
+            is_match = bcrypt.checkpw(
+                password.encode('utf-8'),
+                user_row.get("password").encode('utf-8')
+            )
+
+            if not is_match:
+                return None
+
+            # 3. 프로필 이미지 경로 조회
+            profile_image_path = None
+            if user_row.get('file_id'):
+                profile_sql = "SELECT file_path FROM file_table WHERE file_id = %s AND deleted_at IS NULL AND file_category = 1;"
+                cur.execute(profile_sql, (user_row['file_id'],))
+                profile_row = cur.fetchone()
+                if profile_row:
+                    profile_image_path = profile_row['file_path']
+
+
+
+            user = {
+                "userId": user_row.get('user_id'),
+                "email": user_row.get('email'),
+                "nickname": user_row.get('nickname'),
+                "profileImagePath": profile_image_path,
+                "sessionId": session_id,
+                "created_at": user_row.get('created_at'),
+                "updated_at": user_row.get('updated_at'),
+                "deleted_at": user_row.get('deleted_at'),
+            }
+
+            session_sql = "UPDATE user_table SET session_id = %s WHERE user_id = %s;"
+            cur.execute(session_sql, (session_id, user_row.get('user_id')))
+
+            # 5. 모든 DB 작업이 성공했으므로 변경사항을 확정(commit)
+            conn.commit()
+
+            return user
+
+    except pymysql.Error as e:
+        if conn: conn.rollback()
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+
+async def signup_user(
+        email: str,
+        password: str,
+        nickname: str,
+        profile_image_path: Optional[str] = None,
+) -> Union[str, Dict[str, Optional[int]], None]:
+    conn = None
+    try:
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(SALT_ROUNDS))
+
+        conn = get_connection()
+        with conn.cursor() as cur:
             cur.execute("SELECT 1 FROM user_table WHERE email = %s LIMIT 1;", (email,))
             if cur.fetchone():
                 conn.rollback()
                 return "already_exist_email"
 
-            # 2) 유저 생성 (password 컬럼 길이 확인: VARCHAR(60) 이상)
             cur.execute(
                 """
                 INSERT INTO user_table (email, password, nickname)
                 VALUES (%s, %s, %s);
                 """,
-                (email, password, nickname),
+                (email, hashed_password, nickname),
             )
             user_id = cur.lastrowid
 
             profile_image_id: Optional[int] = None
 
-            # 3) 프로필 이미지 처리(선택)
             if profile_image_path:
                 cur.execute(
                     """
@@ -69,10 +119,9 @@ async def signup_user(
         conn.commit()
         return {"userId": user_id, "profileImageId": profile_image_id}
 
-    except Exception as e:  # 드라이버별 Error 타입 모호하면 Exception으로 포괄
+    except Exception as e:
         if conn:
             conn.rollback()
-        # 운영 시 로거로 전환 권장
         print("[signup_user] DB error:", repr(e))
         return None
     finally:
@@ -81,10 +130,6 @@ async def signup_user(
 
 
 async def get_user_by_email(email: str) -> Optional[Dict]:
-    """
-    email로 user_table 조회 (deleted_at IS NULL).
-    반환: Dict(유저 행) or None
-    """
     conn = None
     try:
         conn = get_connection()
@@ -109,10 +154,8 @@ async def get_user_by_email(email: str) -> Optional[Dict]:
     finally:
         if conn: conn.close()
 
+
 async def get_profile_image_path(file_id: int) -> Optional[str]:
-    """
-    file_table에서 카테고리=1, 삭제 안된 프로필 이미지 경로 조회
-    """
     conn = None
     try:
         conn = get_connection()
@@ -136,10 +179,8 @@ async def get_profile_image_path(file_id: int) -> Optional[str]:
     finally:
         if conn: conn.close()
 
+
 async def update_session_id(user_id: int, session_id: str) -> bool:
-    """
-    user_table.session_id 갱신
-    """
     conn = None
     try:
         conn = get_connection()
@@ -157,10 +198,8 @@ async def update_session_id(user_id: int, session_id: str) -> bool:
     finally:
         if conn: conn.close()
 
+
 async def destroy_user_session(user_id: int) -> bool:
-    """
-    user_table.session_id 삭제
-    """
     conn = None
     try:
         conn = get_connection()
@@ -175,10 +214,8 @@ async def destroy_user_session(user_id: int) -> bool:
     finally:
         if conn: conn.close()
 
+
 async def check_email(email: str) -> bool:
-    """
-    user_table에서 email 중복 검사
-    """
     conn = None
     try:
         conn = get_connection()
@@ -196,10 +233,8 @@ async def check_email(email: str) -> bool:
     finally:
         if conn: conn.close()
 
+
 async def check_nickname(nickname: str) -> bool:
-    """
-    user_table에서 nickname 중복 검사
-    """
     conn = None
     try:
         conn = get_connection()
@@ -217,13 +252,11 @@ async def check_nickname(nickname: str) -> bool:
     finally:
         if conn: conn.close()
 
+
 async def get_user(user_id: int) -> tuple[dict[str, Any], ...] | None:
-    """
-    user_table에서 user_id로 조회
-    """
     conn = get_connection()
     try:
-       with conn.cursor(DictCursor) as cur:
+        with conn.cursor(DictCursor) as cur:
             cur.execute(
                 """
                 SELECT user_table.*, COALESCE(file_table.file_path, NULL) AS file_path
@@ -242,13 +275,14 @@ async def get_user(user_id: int) -> tuple[dict[str, Any], ...] | None:
     finally:
         if conn: conn.close()
 
+
 async def update_user(payload: dict) -> Union[str, bool]:
     user_id = payload.get("userId")
     nickname = payload.get("nickname")
-    profile_image_path = payload.get("profileImagePath")  
+    profile_image_path = payload.get("profileImagePath")
 
     if user_id is None:
-        return STATUS_MESSAGE["INVALID_USER_ID"]  
+        return STATUS_MESSAGE["INVALID_USER_ID"]
 
     conn = None
     try:
@@ -262,7 +296,7 @@ async def update_user(payload: dict) -> Union[str, bool]:
 
             cur.execute(
                 "INSERT INTO file_table (user_id, file_path, file_category) "
-                "VALUES (%s, %s, %s)", 
+                "VALUES (%s, %s, %s)",
                 (user_id, profile_image_path, 1),
             )
 
@@ -293,17 +327,16 @@ async def update_user(payload: dict) -> Union[str, bool]:
 
 
 async def change_password(payload: dict) -> bool:
-    """
-    user_table에서 user_id로 조회
-    """
     user_id = payload.get("userId")
     password = payload.get("password")
+
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(SALT_ROUNDS))
 
     conn = None
     try:
         conn = get_connection()
         with conn.cursor() as cur:
-            cur.execute("UPDATE user_table SET password = %s WHERE user_id = %s", (password, user_id))
+            cur.execute("UPDATE user_table SET password = %s WHERE user_id = %s", (hashed_password, user_id))
             conn.commit()
             return True
     except Error as e:
@@ -313,10 +346,8 @@ async def change_password(payload: dict) -> bool:
     finally:
         if conn: conn.close()
 
+
 async def delete_user(user_id: int) -> bool:
-    """
-    user_table에서 user_id로 삭제
-    """
     conn = None
     try:
         conn = get_connection()
@@ -331,10 +362,8 @@ async def delete_user(user_id: int) -> bool:
     finally:
         if conn: conn.close()
 
+
 async def get_nickname(user_id: int) -> Optional[str]:
-    """
-    user_table에서 user_id로 조회
-    """
     conn = None
     try:
         conn = get_connection()

@@ -1,17 +1,8 @@
-import pymysql
 from pymysql import MySQLError as Error
-from pymysql.cursors import DictCursor
-from database import index
-from starlette.concurrency import run_in_threadpool
-from utils.constant.httpStatusCode import STATUS_MESSAGE
+from util.constant.httpStatusCode import STATUS_MESSAGE
 from typing import Optional, Dict, Any
-
-def get_connection():
-    return pymysql.connect(
-        **index.MYSQL_DB_CONFIG,
-        cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True,
-    )
+from pymysql.cursors import DictCursor
+from database.index import get_connection
 
 async def create_post(
     user_id: int,
@@ -21,9 +12,8 @@ async def create_post(
 ) -> Dict[str, Any] | str | None:
     conn = None
     try:
-        conn = get_connection()  
+        conn = get_connection()
         with conn.cursor(DictCursor) as cur:
-            # 1) 닉네임 조회
             cur.execute(
                 """
                 SELECT nickname
@@ -33,12 +23,10 @@ async def create_post(
                 (user_id,),
             )
             row = cur.fetchone()
-            print("createPost - row", row)
             if not row:
                 return STATUS_MESSAGE["NOT_FOUND_USER"]
             nickname = row["nickname"]
 
-            # 2) 게시글 INSERT
             cur.execute(
                 """
                 INSERT INTO post_table (user_id, nickname, post_title, post_content)
@@ -46,12 +34,9 @@ async def create_post(
                 """,
                 (user_id, nickname, post_title, post_content),
             )
-            affected_rows = cur.rowcount            
+            affected_rows = cur.rowcount
             insert_id = cur.lastrowid
-            print(affected_rows)
-            print(attach_file_path)
 
-            # 3) 첨부 파일 (옵션)
             if attach_file_path is not None:
                 cur.execute(
                     """
@@ -69,18 +54,18 @@ async def create_post(
 
             cur.execute("SELECT @@warning_count AS warningStatus")
             warning_status = cur.fetchone()["warningStatus"]
-            server_status = getattr(conn, "server_status", 2)  
+            server_status = getattr(conn, "server_status", 2)
 
             conn.commit()
 
             meta = {
-                "fieldCount": 0,              
+                "fieldCount": 0,
                 "affectedRows": affected_rows,
-                "insertId": insert_id,         
-                "info": "",                    
-                "serverStatus": server_status, # 드라이버가 달라서 server_status를 commit 전에 읽기 때문에 1이 나옴
+                "insertId": insert_id,
+                "info": "",
+                "serverStatus": server_status,
                 "warningStatus": warning_status,
-                "changedRows": 0,              
+                "changedRows": 0,
             }
             return meta
 
@@ -102,9 +87,8 @@ async def update_post(
 ) -> Dict[str, Any] | str | None:
     conn = None
     try:
-        conn = get_connection()  # FOUND_ROWS 설정 유지 가능
+        conn = get_connection()
         with conn.cursor(DictCursor) as cur:
-            # 값이 동일하면 매칭 자체가 안 되도록 NULL-safe 비교(<=>) 사용
             update_post_sql = """
                 UPDATE post_table
                 SET post_title = %s, post_content = %s
@@ -117,11 +101,10 @@ async def update_post(
                 (postTitle, postContent, postId, postTitle, postContent),
             )
 
-            matched = int(cur.rowcount)          # Rows matched (동일값이면 0)
+            matched = int(cur.rowcount)
             cur.execute("SELECT ROW_COUNT() AS changed")
             changed = int(cur.fetchone()["changed"])
 
-            # 첨부 파일 처리
             if attachFilePath is None:
                 cur.execute("UPDATE post_table SET file_id = NULL WHERE post_id = %s", (postId,))
             elif attachFilePath:
@@ -141,7 +124,6 @@ async def update_post(
             cur.execute("SELECT @@warning_count AS warningStatus")
             warning_status = int(cur.fetchone()["warningStatus"])
 
-        # 커밋 후 OkPacket 구성 (serverStatus=2로 고정)
         conn.commit()
         meta: Dict[str, Any] = {
             "fieldCount": 0,
@@ -232,7 +214,6 @@ async def get_post(post_id: int) -> tuple[Any, ...] | None:
     post_result = None
     try:
         with get_connection() as conn, conn.cursor() as cur:
-            # 게시글 정보 가져오기
             post_sql = """
             SELECT 
                 post_table.post_id,
@@ -271,7 +252,6 @@ async def get_post(post_id: int) -> tuple[Any, ...] | None:
             if not post_result:
                 return None
 
-            # 조회수 증가
             hits_sql = """
                 UPDATE post_table 
                 SET hits = hits + 1 
@@ -280,7 +260,6 @@ async def get_post(post_id: int) -> tuple[Any, ...] | None:
             cur.execute(hits_sql, (post_id,))
             conn.commit()
 
-            # 유저 프로필 이미지 file_id 가져오기
             user_sql = """
                 SELECT file_id 
                 FROM user_table 

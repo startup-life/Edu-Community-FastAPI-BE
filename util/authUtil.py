@@ -3,14 +3,14 @@ from typing import Optional
 from fastapi import Depends, Header, HTTPException
 from pymysql.cursors import DictCursor
 
-from utils.constant.httpStatusCode import STATUS_CODE
-from utils.constant.httpStatusCode import STATUS_MESSAGE
+from util.constant.httpStatusCode import STATUS_CODE
+from util.constant.httpStatusCode import STATUS_MESSAGE
 from model import user_model  # get_connection: 콜러블(호출 X)
 
 def is_logged_in(
     session: Optional[str] = Header(None, alias="session"),
     userid: Optional[int] = Header(None, alias="userid"),
-    db = Depends(user_model.get_connection),  
+    db = Depends(user_model.get_connection),
 ) -> bool:
     # 1) userId 검증
     if not userid:

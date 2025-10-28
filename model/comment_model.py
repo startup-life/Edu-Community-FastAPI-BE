@@ -1,18 +1,6 @@
-import pymysql
-from pymysql import MySQLError as Error
-from database import index  
-from model import user_model
-from starlette.concurrency import run_in_threadpool
-from fastapi import HTTPException
-from utils.constant.httpStatusCode import STATUS_MESSAGE
-from typing import Optional, Union, Dict, Any
-
-def get_connection():
-    return pymysql.connect(
-        **index.MYSQL_DB_CONFIG,
-        cursorclass=pymysql.cursors.DictCursor,
-        autocommit=False,
-    )
+from database.index import get_connection
+from util.constant.httpStatusCode import STATUS_MESSAGE
+from typing import Dict, Any
 
 async def get_comments(post_id: int) -> list:
     result = []
@@ -29,11 +17,11 @@ async def get_comments(post_id: int) -> list:
                 post_id
             )
             result = cursor.fetchall()
-            print("result", result)
     except Exception as e:
         print("MySQL error in get_comments:", e)
         result = []
     return result
+
 
 async def write_comment(post_id: int, user_id: int, comment_content: str) -> str | int | bool:
     result = False
@@ -46,7 +34,6 @@ async def write_comment(post_id: int, user_id: int, comment_content: str) -> str
 
             cursor.execute(nickname_sql, (user_id,))
             nickname_sql_result: tuple = cursor.fetchone()
-            print("write_comment 안쪽",nickname_sql_result)
             if not nickname_sql_result:
                 return STATUS_MESSAGE["NOT_FOUND_USER"]
             result_nickname: str = nickname_sql_result["nickname"]
@@ -60,7 +47,6 @@ async def write_comment(post_id: int, user_id: int, comment_content: str) -> str
             )
             post_sql: str = cursor.fetchone()
             if not post_sql:
-                print("post_sql", post_sql)
                 return STATUS_MESSAGE["NOT_FOUND_POST"]
             result_post: str = post_sql["post_id"]
             insert_comment_sql = """
@@ -68,7 +54,7 @@ async def write_comment(post_id: int, user_id: int, comment_content: str) -> str
                 (post_id, user_id, nickname, comment_content)
                 VALUES (%s, %s, %s, %s)
             """
-            cursor.execute(insert_comment_sql, (result_post, user_id, result_nickname, comment_content),)
+            cursor.execute(insert_comment_sql, (result_post, user_id, result_nickname, comment_content), )
             result = cursor.lastrowid
             if not result:
                 return STATUS_MESSAGE["WRITE_POST_FAILED"]
@@ -86,7 +72,8 @@ async def write_comment(post_id: int, user_id: int, comment_content: str) -> str
         print("MySQL error in write_comment:", e)
         result = False
     return result
-    
+
+
 async def delete_comment(post_id: int, comment_id: int, user_id: int):
     result = False
     try:
@@ -100,7 +87,7 @@ async def delete_comment(post_id: int, comment_id: int, user_id: int):
 
             if not check_post_result:
                 return None
-            
+
             ckeck_user_sql = """
             SELECT * FROM comment_table
             WHERE post_id = %s AND comment_id = %s AND user_id = %s AND deleted_at IS NULL;
@@ -110,7 +97,7 @@ async def delete_comment(post_id: int, comment_id: int, user_id: int):
 
             if not check_user_result:
                 return STATUS_MESSAGE["NO_AUTH_ERROR"]
-            
+
             sql = """
             UPDATE comment_table
             SET deleted_at = now()
@@ -140,7 +127,9 @@ async def delete_comment(post_id: int, comment_id: int, user_id: int):
         result = False
     return result
 
-async def update_comment(post_id: int, comment_id: int, user_id: int, comment_content: str) -> Dict[str, Any] | str | None:
+
+async def update_comment(post_id: int, comment_id: int, user_id: int, comment_content: str) -> Dict[
+                                                                                                   str, Any] | str | None:
     result = False
     try:
         with get_connection() as conn, conn.cursor() as cur:
@@ -149,7 +138,7 @@ async def update_comment(post_id: int, comment_id: int, user_id: int, comment_co
                 WHERE post_id = %s AND deleted_at IS NULL;
             """
             cur.execute(check_post_sql, (post_id,))
-            
+
             sql = """
             UPDATE comment_table
             SET comment_content = %s
@@ -161,7 +150,7 @@ async def update_comment(post_id: int, comment_id: int, user_id: int, comment_co
 
             cur.execute(sql, (comment_content, post_id, comment_id, user_id))
             result = cur.rowcount
-            
+
             conn.commit()
             return result
     except Exception:
