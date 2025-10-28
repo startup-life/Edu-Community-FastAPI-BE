@@ -1,0 +1,12 @@
+[project]
+name = "pythonproject1"
+version = "0.1.0"
+dependencies = [
+    "fastapi>=0.117.1,<0.118.0",
+    "uvicorn[standard]>=0.36.0,<0.37.0"
+]
+requires-python = ">=3.13"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
