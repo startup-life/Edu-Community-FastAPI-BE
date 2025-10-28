@@ -4,15 +4,18 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
-from starlette.staticfiles import StaticFiles
 import time
 from typing import Dict, Deque
-
 from router.users_router import router as users_router
 from router.files_router import router as files_router
 from router.posts_router import router as posts_router
 from router.comments_router import router as comments_router
 from collections import deque
+
+from database.index import get_connection
+import os
+from starlette.middleware.sessions import SessionMiddleware
+
 
 # 로거 설정
 logging.basicConfig(level=logging.INFO)
@@ -104,3 +107,22 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))
+
+def init_session_id():
+    try:
+        sql = """
+            UPDATE user_table SET session_id = NULL;
+        """
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute(sql)
+            conn.commit()
+    except Exception as e:
+        print("MySQL error in init_session_id:", e)
+        return False
+    return True
+
+@app.on_event("startup")
+async def startup_event():
+    init_session_id()
