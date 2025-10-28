@@ -1,9 +1,13 @@
 from typing import Optional, Dict, Any, Union
 import pymysql
 from pymysql import MySQLError as Error
-from util.constant.httpStatusCode import  STATUS_MESSAGE
+from util.constant.httpStatusCode import STATUS_MESSAGE
 from pymysql.cursors import DictCursor
 from database.index import get_connection
+import bcrypt
+
+SALT_ROUNDS = 10
+
 
 async def login_user(email: str, password: str) -> Optional[Dict]:
     conn = None
@@ -18,7 +22,12 @@ async def login_user(email: str, password: str) -> Optional[Dict]:
             if not user_row:
                 return None
 
-            if not user_row.get("password") == password:
+            is_match = bcrypt.checkpw(
+                password.encode('utf-8'),
+                user_row.get("password").encode('utf-8')
+            )
+
+            if not is_match:
                 return None
 
             # 3. 프로필 이미지 경로 조회
@@ -51,14 +60,17 @@ async def login_user(email: str, password: str) -> Optional[Dict]:
         if conn:
             conn.close()
 
+
 async def signup_user(
-    email: str,
-    password: str,
-    nickname: str,
-    profile_image_path: Optional[str] = None,
+        email: str,
+        password: str,
+        nickname: str,
+        profile_image_path: Optional[str] = None,
 ) -> Union[str, Dict[str, Optional[int]], None]:
     conn = None
     try:
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(SALT_ROUNDS))
+
         conn = get_connection()
         with conn.cursor() as cur:
             cur.execute("SELECT 1 FROM user_table WHERE email = %s LIMIT 1;", (email,))
@@ -71,7 +83,7 @@ async def signup_user(
                 INSERT INTO user_table (email, password, nickname)
                 VALUES (%s, %s, %s);
                 """,
-                (email, password, nickname),
+                (email, hashed_password, nickname),
             )
             user_id = cur.lastrowid
 
@@ -134,6 +146,7 @@ async def get_user_by_email(email: str) -> Optional[Dict]:
     finally:
         if conn: conn.close()
 
+
 async def get_profile_image_path(file_id: int) -> Optional[str]:
     conn = None
     try:
@@ -158,6 +171,7 @@ async def get_profile_image_path(file_id: int) -> Optional[str]:
     finally:
         if conn: conn.close()
 
+
 async def update_session_id(user_id: int, session_id: str) -> bool:
     conn = None
     try:
@@ -176,6 +190,7 @@ async def update_session_id(user_id: int, session_id: str) -> bool:
     finally:
         if conn: conn.close()
 
+
 async def destroy_user_session(user_id: int) -> bool:
     conn = None
     try:
@@ -190,6 +205,7 @@ async def destroy_user_session(user_id: int) -> bool:
         return False
     finally:
         if conn: conn.close()
+
 
 async def check_email(email: str) -> bool:
     conn = None
@@ -209,6 +225,7 @@ async def check_email(email: str) -> bool:
     finally:
         if conn: conn.close()
 
+
 async def check_nickname(nickname: str) -> bool:
     conn = None
     try:
@@ -227,10 +244,11 @@ async def check_nickname(nickname: str) -> bool:
     finally:
         if conn: conn.close()
 
+
 async def get_user(user_id: int) -> tuple[dict[str, Any], ...] | None:
     conn = get_connection()
     try:
-       with conn.cursor(DictCursor) as cur:
+        with conn.cursor(DictCursor) as cur:
             cur.execute(
                 """
                 SELECT user_table.*, COALESCE(file_table.file_path, NULL) AS file_path
@@ -248,6 +266,7 @@ async def get_user(user_id: int) -> tuple[dict[str, Any], ...] | None:
         return None
     finally:
         if conn: conn.close()
+
 
 async def update_user(payload: dict) -> Union[str, bool]:
     user_id = payload.get("userId")
@@ -303,11 +322,13 @@ async def change_password(payload: dict) -> bool:
     user_id = payload.get("userId")
     password = payload.get("password")
 
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(SALT_ROUNDS))
+
     conn = None
     try:
         conn = get_connection()
         with conn.cursor() as cur:
-            cur.execute("UPDATE user_table SET password = %s WHERE user_id = %s", (password, user_id))
+            cur.execute("UPDATE user_table SET password = %s WHERE user_id = %s", (hashed_password, user_id))
             conn.commit()
             return True
     except Error as e:
@@ -316,6 +337,7 @@ async def change_password(payload: dict) -> bool:
         return False
     finally:
         if conn: conn.close()
+
 
 async def delete_user(user_id: int) -> bool:
     conn = None
@@ -331,6 +353,7 @@ async def delete_user(user_id: int) -> bool:
         return False
     finally:
         if conn: conn.close()
+
 
 async def get_nickname(user_id: int) -> Optional[str]:
     conn = None
