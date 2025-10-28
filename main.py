@@ -6,9 +6,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 import time
 from typing import Dict, Deque
-from router.users_router import router as users_router
-from router.posts_router import router as posts_router
-from router.comments_router import router as comments_router
+
+from controller import users, posts, comments
 from collections import deque
 
 # 로거 설정
@@ -71,9 +70,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI()
 
-app.include_router(users_router)
-app.include_router(posts_router)
-app.include_router(comments_router)
+app.include_router(users.router)
+app.include_router(posts.router)
+app.include_router(comments.router)
 
 ALLOW_ORIGINS = [
     "http://localhost:8080",
@@ -99,3 +98,6 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+from db_connect_test import connect_test
+
+connect_test()

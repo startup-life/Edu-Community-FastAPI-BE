@@ -3,7 +3,9 @@ name = "pythonproject1"
 version = "0.1.0"
 dependencies = [
     "fastapi>=0.117.1,<0.118.0",
-    "uvicorn[standard]>=0.36.0,<0.37.0"
+    "uvicorn[standard]>=0.36.0,<0.37.0",
+    "pymysql>=1.0.3,<1.1.0",
+    "cryptography>=41.0.3,<42.0.0",
 ]
 requires-python = ">=3.13"
 
