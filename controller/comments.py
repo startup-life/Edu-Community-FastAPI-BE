@@ -47,6 +47,10 @@ class CommentsController:
         new_id = len(comments) + 1
         nickname = _get_user_nickname(userid)
         now_iso = _now()
+        """
+        새로운 댓글 형식을 위해서 new_comment 딕셔너리를 생성하고 comments 리스트에 추가
+        반환값은 생성된 댓글 정보를 포함
+        """
         new_comment = {
             "comment_id": new_id,
             "comment_content": commentContent,

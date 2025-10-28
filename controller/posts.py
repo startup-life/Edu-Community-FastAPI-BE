@@ -37,9 +37,21 @@ posts: List[Dict[str, Any]] = [
     },
 ]
 
+"""
+유틸 함수
+"""
+
+"""
+현재 UTC 시간을 ISO 문자열로 반환
+게시글 생성 및 수정 시간에 사용
+"""
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+"""
+사용자 ID로 닉네임 조회
+해당 사용자가 없으면 "익명" 반환
+"""
 def _get_user_nickname(user_id: int) -> str:
     u = next((u for u in users if u["user_id"] == user_id), None)
     return u["nickname"] if u else "익명"
@@ -49,6 +61,9 @@ class PostsController:
         new_post_id = len(posts) + 1
         nickname = _get_user_nickname(userid)
         now_iso = _now()
+        """
+        포스트 글 형식 맞추기 위해서 new_post 생성
+        """
         new_post = {
             "post_id": new_post_id,
             "post_title": postTitle,
@@ -66,6 +81,9 @@ class PostsController:
         return {"data": new_post}
 
     async def get_posts(self):
+        """
+        deleted_at이 없는 활성 게시글만 필터링하여 반환
+        """
         active = [p for p in posts if not p["deleted_at"]]
         return {"data": active}
 

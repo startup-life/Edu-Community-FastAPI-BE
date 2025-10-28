@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Body, Header, Path
 from controller.posts import PostsController
 
-router = APIRouter(prefix="/posts", tags=["posts"], responses={404: {"description": "Not found"}})
+"""
+prefix: 모든 엔드포인트 앞에 /posts 자동 추가
+responses: 공통 응답 정의
+"""
+router = APIRouter(prefix="/posts", responses={404: {"description": "Not found"}})
 
 def _ctl() -> PostsController:
     return PostsController()

@@ -71,6 +71,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI()
 
+# 라우터 등록
+# 기능별 라우터 분리
 app.include_router(users_router)
 app.include_router(posts_router)
 app.include_router(comments_router)
