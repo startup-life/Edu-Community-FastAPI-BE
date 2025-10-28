@@ -1,82 +1,80 @@
-from typing import List, Dict, Any
-from datetime import datetime, timezone
+from typing import Annotated
+from fastapi import HTTPException
 from fastapi.responses import JSONResponse
-
-# 인메모리 더미 데이터
-users = [
-    {"user_id": 1, "nickname": "앨리스"},
-    {"user_id": 2, "nickname": "밥"},
-]
-
-comments: List[Dict[str, Any]] = [
-    {
-        "comment_id": 1,
-        "comment_content": "좋은 글이네요.",
-        "post_id": 1,
-        "user_id": 2,
-        "nickname": "밥",
-        "created_at": "2024-12-10T10:00:00Z",
-        "updated_at": "2024-12-10T10:00:00Z",
-        "deleted_at": None,
-    },
-    {
-        "comment_id": 2,
-        "comment_content": "감사합니다!",
-        "post_id": 1,
-        "user_id": 1,
-        "nickname": "앨리스",
-        "created_at": "2024-12-10T10:05:00Z",
-        "updated_at": "2024-12-10T10:05:00Z",
-        "deleted_at": None,
-    },
-]
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-def _get_user_nickname(user_id: int) -> str:
-    u = next((u for u in users if u["user_id"] == user_id), None)
-    return u["nickname"] if u else "익명"
+from util.constant.httpStatusCode import STATUS_CODE, STATUS_MESSAGE
+from model import comment_model
 
 class CommentsController:
+    async def write_comment(self, comment_content: str, user_id: int, post_id: int):
+        try:
+            content = (comment_content or "").strip()
+            if not content or len(content) > 1000:
+                raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_COMMENT_CONTENT"])
+
+            res = await comment_model.write_comment(post_id=post_id, user_id=user_id, comment_content=content)
+            if res is None or res == "insert_error":
+                raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["WRITE_COMMENT_FAILED"])
+
+            return {"message": STATUS_MESSAGE["WRITE_COMMENT_SUCCESS"], "data": None}
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["WRITE_COMMENT_FAILED"])
+
     async def get_comments(self, post_id: int):
-        filtered = [c for c in comments if c["post_id"] == post_id and not c["deleted_at"]]
-        return {"data": filtered}
+        try:
+            if not post_id:
+                raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_POST_ID"])
 
-    async def write_comment(self, post_id: int, userid: int, commentContent: str):
-        new_id = len(comments) + 1
-        nickname = _get_user_nickname(userid)
-        now_iso = _now()
-        new_comment = {
-            "comment_id": new_id,
-            "comment_content": commentContent,
-            "post_id": post_id,
-            "user_id": userid,
-            "nickname": nickname,
-            "created_at": now_iso,
-            "updated_at": now_iso,
-            "deleted_at": None,
-        }
-        comments.append(new_comment)
-        return {"data": new_comment}
+            data = await comment_model.get_comments(post_id)
+            if not data:
+                return {
+                    "status_code": STATUS_CODE["OK"],
+                    "status_message": STATUS_MESSAGE["GET_COMMENTS_SUCCESS"],
+                    "data": [],
+                }
+            return {"message": None, "data": data}
+        except Exception:
+            raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["GET_COMMENTS_FAILED"])
 
-    async def update_comment(self, post_id: int, comment_id: int, commentContent: str):
-        comment = next(
-            (c for c in comments if c["post_id"] == post_id and c["comment_id"] == comment_id and not c["deleted_at"]),
-            None,
-        )
-        if not comment:
-            return JSONResponse(status_code=404, content={"data": None})
-        comment["comment_content"] = commentContent
-        comment["updated_at"] = _now()
-        return {"data": comment}
+    async def update_comment(self, comment_content: str, post_id: int, comment_id: int, user_id: int):
+        try:
+            if not post_id:
+                raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_POST_ID"])
+            if not comment_id:
+                raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_COMMENT_ID"])
+            if not comment_content or len(comment_content) > 1000:
+                raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_COMMENT_CONTENT"])
 
-    async def soft_delete_comment(self, post_id: int, comment_id: int):
-        comment = next(
-            (c for c in comments if c["post_id"] == post_id and c["comment_id"] == comment_id and not c["deleted_at"]),
-            None,
-        )
-        if not comment:
-            return JSONResponse(status_code=404, content={"data": None})
-        comment["deleted_at"] = _now()
-        return {"data": None}
+            await comment_model.update_comment(
+                post_id=post_id, comment_id=comment_id, user_id=user_id, comment_content=comment_content
+            )
+            return {"message": STATUS_MESSAGE["UPDATE_COMMENT_SUCCESS"], "data": None}
+        except Exception:
+            return JSONResponse(
+                status_code=STATUS_CODE["UNAUTHORIZED"],
+                content={"message": STATUS_MESSAGE["REQUERED_AUTHORIZATION"], "data": None},
+            )
+
+    async def delete_comment(self, post_id: int, comment_id: int, user_id: int):
+        try:
+            if not post_id:
+                raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_POST_ID"])
+            if not comment_id:
+                raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_COMMENT_ID"])
+
+            result = await comment_model.delete_comment(post_id=post_id, comment_id=comment_id, user_id=user_id)
+
+            if not result:
+                raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_A_SINGLE_POST"])
+            if result == "no_auth_error":
+                raise HTTPException(STATUS_CODE["UNAUTHORIZED"], STATUS_MESSAGE["AUTHORIZATION"])
+            if result == "delete_error":
+                raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["INTERNAL_SERVER_ERROR"])
+
+            return {"message": STATUS_MESSAGE["DELETE_COMMENT_SUCCESS"], "data": None}
+        except Exception:
+            return JSONResponse(
+                status_code=STATUS_CODE["UNAUTHORIZED"],
+                content={"message": STATUS_MESSAGE["REQUERED_AUTHORIZATION"], "data": None},
+            )

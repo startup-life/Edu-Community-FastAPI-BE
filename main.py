@@ -4,10 +4,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 import time
 from typing import Dict, Deque
 
-from controller import users, posts, comments
+from router.users_router import router as users_router
+from router.files_router import router as files_router
+from router.posts_router import router as posts_router
+from router.comments_router import router as comments_router
 from collections import deque
 
 # 로거 설정
@@ -70,9 +74,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI()
 
-app.include_router(users.router)
-app.include_router(posts.router)
-app.include_router(comments.router)
+app.mount("/public", StaticFiles(directory="public"))
+
+app.include_router(users_router)
+app.include_router(posts_router)
+app.include_router(comments_router)
+app.include_router(files_router)
 
 ALLOW_ORIGINS = [
     "http://localhost:8080",
@@ -97,7 +104,3 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-
-from db_connect_test import connect_test
-
-connect_test()
