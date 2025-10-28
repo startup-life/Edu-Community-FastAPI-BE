@@ -8,10 +8,11 @@ import time
 from typing import Dict, Deque
 from collections import deque
 
-# 로거 설정
+# 로거 설정 Info 레벨로 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 타임아웃 미들웨어
 class TimeoutMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, timeout: int = 10):
         super().__init__(app)
@@ -32,9 +33,10 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
                 status_code=504
             )
 
-
+# 전역 변수로 IP별 요청 기록 저장
 rate_limit_data: Dict[str, Deque[float]] = {}
 
+# 요청 제한 미들웨어
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, requests_limit: int = 5, time_window: int = 10):
         super().__init__(app)
@@ -68,6 +70,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI()
 
+# CORS 허용 도메인 설정
 ALLOW_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
@@ -75,20 +78,23 @@ ALLOW_ORIGINS = [
     "http://127.0.0.1:8000",
 ]
 
+# 타임아웃 미들웨어
 app.add_middleware(TimeoutMiddleware, timeout=15)
 
+# Rate Limiting
 app.add_middleware(
     RateLimitMiddleware,
     requests_limit=5,
     time_window=10
 )
 
+# CORS 미들웨어 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOW_ORIGINS,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_origins=ALLOW_ORIGINS, # 허용할 Origin 목록
+    allow_credentials=False, # 쿠키 인증 허용 여부
+    allow_methods=["*"], # 모든 HTTP 메서드 허용
+    allow_headers=["*"], # 모든 헤더 허용
+    expose_headers=["*"], # 클라이언트에서 접근 가능한 응답 헤더
 )
 
