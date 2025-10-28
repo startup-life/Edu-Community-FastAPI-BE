@@ -17,7 +17,6 @@ from database.index import get_connection
 import os
 from starlette.middleware.sessions import SessionMiddleware
 
-
 # 로거 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -3,6 +3,7 @@ from util.constant.httpStatusCode import STATUS_MESSAGE
 from typing import Optional, Dict, Any
 from pymysql.cursors import DictCursor
 from database.index import get_connection
+from model.AI_model import generate_ai_response
 
 async def create_post(
     user_id: int,
@@ -50,6 +51,19 @@ async def create_post(
                     cur.execute(
                         "UPDATE post_table SET file_id = %s WHERE post_id = %s",
                         (file_id, insert_id),
+                    )
+
+                ai_result = await generate_ai_response(attach_file_path)
+
+                if ai_result is None:
+                    cur.execute(
+                        "INSERT INTO comment_table (post_id, user_id, nickname, comment_content) VALUES (%s, %s, %s, '분석에 실패했습니다.')",
+                        (insert_id, user_id, nickname)
+                    )
+                else:
+                    cur.execute(
+                        "INSERT INTO comment_table (post_id, user_id, nickname, comment_content) VALUES (%s, %s, %s, %s)",
+                        (insert_id, user_id, nickname, ai_result),
                     )
 
             cur.execute("SELECT @@warning_count AS warningStatus")
