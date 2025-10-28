@@ -100,4 +100,8 @@ app.add_middleware(
 
 from db_connect_test import connect_test
 
+"""
+DB 연결 테스트
+서버 실행 시 DB 연결이 정상적으로 되는지 확인
+"""
 connect_test()

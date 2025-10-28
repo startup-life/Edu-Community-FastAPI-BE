@@ -2,7 +2,9 @@ import pymysql
 
 from database.index import get_connection
 
-
+"""
+실행시 데이터베이스 연결 테스트
+"""
 def connect_test():
     connection = None
     try:
