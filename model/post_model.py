@@ -22,6 +22,7 @@ async def create_post(
                 """,
                 (user_id,),
             )
+            # 쿼리 결과 중 첫 번째 행을 가져옴
             row = cur.fetchone()
             if not row:
                 return STATUS_MESSAGE["NOT_FOUND_USER"]
@@ -52,19 +53,12 @@ async def create_post(
                         (file_id, insert_id),
                     )
 
-            cur.execute("SELECT @@warning_count AS warningStatus")
-            warning_status = cur.fetchone()["warningStatus"]
-            server_status = getattr(conn, "server_status", 2)
-
             conn.commit()
 
             meta = {
                 "fieldCount": 0,
                 "affectedRows": affected_rows,
                 "insertId": insert_id,
-                "info": "",
-                "serverStatus": server_status,
-                "warningStatus": warning_status,
                 "changedRows": 0,
             }
             return meta
@@ -245,7 +239,6 @@ async def get_post(post_id: int) -> tuple[Any, ...] | None:
             """
             cur.execute(post_sql, (post_id,))
             post_result = cur.fetchone()
-            print(post_result)
 
             if not post_result:
                 return None

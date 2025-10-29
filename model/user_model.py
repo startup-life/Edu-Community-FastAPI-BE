@@ -34,10 +34,10 @@ async def login_user(email: str, password: str) -> Optional[Dict]:
             profile_image_path = None
             if user_row.get('file_id'):
                 profile_sql = "SELECT file_path FROM file_table WHERE file_id = %s AND deleted_at IS NULL AND file_category = 1;"
-                cur.execute(profile_sql, (user_row[0]['file_id'],))
+                cur.execute(profile_sql, (user_row['file_id'],))
                 profile_row = cur.fetchone()
                 if profile_row:
-                    profile_image_path = profile_row[0]['file_path']
+                    profile_image_path = profile_row['file_path']
 
             # 5. 모든 DB 작업이 성공했으므로 변경사항을 확정(commit)
             conn.commit()
@@ -52,10 +52,6 @@ async def login_user(email: str, password: str) -> Optional[Dict]:
                 "deleted_at": user_row.get('deleted_at'),
             }
             return user
-
-    except pymysql.Error as e:
-        if conn: conn.rollback()
-        return None
     finally:
         if conn:
             conn.close()
@@ -70,10 +66,12 @@ async def signup_user(
     conn = None
     try:
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(SALT_ROUNDS))
-
+        # DB connection pool에서 커넥션 획득
         conn = get_connection()
+        # 이메일 중복 검사
+        # 1만 선택하여 존재 여부만 확인
         with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM user_table WHERE email = %s LIMIT 1;", (email,))
+            cur.execute("SELECT email FROM user_table WHERE email = %s;", (email,))
             if cur.fetchone():
                 conn.rollback()
                 return "already_exist_email"
@@ -112,8 +110,6 @@ async def signup_user(
         return {"userId": user_id, "profileImageId": profile_image_id}
 
     except Exception as e:
-        if conn:
-            conn.rollback()
         print("[signup_user] DB error:", repr(e))
         return None
     finally:
@@ -140,7 +136,6 @@ async def get_user_by_email(email: str) -> Optional[Dict]:
         conn.commit()
         return row
     except Error as e:
-        if conn: conn.rollback()
         print("MySQL error in get_user_by_email:", e)
         return None
     finally:
@@ -184,7 +179,6 @@ async def update_session_id(user_id: int, session_id: str) -> bool:
         conn.commit()
         return True
     except Error as e:
-        if conn: conn.rollback()
         print("MySQL error in update_session_id:", e)
         return False
     finally:
@@ -200,7 +194,6 @@ async def destroy_user_session(user_id: int) -> bool:
             conn.commit()
             return True
     except Error as e:
-        if conn: conn.rollback()
         print("MySQL error in destroy_user_session:", e)
         return False
     finally:
@@ -219,7 +212,6 @@ async def check_email(email: str) -> bool:
             else:
                 return False
     except Error as e:
-        if conn: conn.rollback()
         print("MySQL error in check_email:", e)
         return False
     finally:
@@ -238,7 +230,6 @@ async def check_nickname(nickname: str) -> bool:
             else:
                 return False
     except Error as e:
-        if conn: conn.rollback()
         print("MySQL error in check_nickname:", e)
         return False
     finally:
@@ -261,7 +252,6 @@ async def get_user(user_id: int) -> tuple[dict[str, Any], ...] | None:
             row = cur.fetchall()
             return row
     except Error as e:
-        if conn: conn.rollback()
         print("MySQL error in get_user:", e)
         return None
     finally:
@@ -303,14 +293,12 @@ async def update_user(payload: dict) -> Union[str, bool]:
                 (file_id, user_id),
             )
             if cur.rowcount == 0:
-                conn.rollback()
                 return STATUS_MESSAGE["UPDATE_PROFILE_IMAGE_FAILED"]
 
             conn.commit()
             return True
 
     except Exception as e:
-        if conn: conn.rollback()
         print("MySQL error in update_user:", e)
         return False
 
@@ -332,7 +320,6 @@ async def change_password(payload: dict) -> bool:
             conn.commit()
             return True
     except Error as e:
-        if conn: conn.rollback()
         print("MySQL error in change_password:", e)
         return False
     finally:
@@ -348,7 +335,6 @@ async def delete_user(user_id: int) -> bool:
             conn.commit()
             return True
     except Error as e:
-        if conn: conn.rollback()
         print("MySQL error in delete_user:", e)
         return False
     finally:
@@ -364,7 +350,6 @@ async def get_nickname(user_id: int) -> Optional[str]:
             row = cur.fetchone()
             return row["nickname"] if row else None
     except Error as e:
-        if conn: conn.rollback()
         print("MySQL error in get_nickname:", e)
         return None
     finally:

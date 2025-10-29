@@ -58,10 +58,13 @@ class PostsController:
     ):
         if not post_title:
             raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_POST_TITLE"])
+
         if len(post_title) > 26:
             raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_POST_TITLE_LENGTH"])
+
         if not post_content:
             raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_POST_CONTENT"])
+
         if len(post_content) > 1500:
             raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_POST_CONTENT_LENGTH"])
 
@@ -71,8 +74,10 @@ class PostsController:
             post_content=post_content,
             attach_file_path=attach_file_path,
         )
+
         if response_data == STATUS_MESSAGE["NOT_FOUND_USER"]:
             raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_FOUND_USER"])
+
         if not response_data:
             raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["WRITE_POST_FAILED"])
 
@@ -84,19 +89,24 @@ class PostsController:
     async def get_post_list(self):
         try:
             rows = await post_model.get_post_list()
+
             if rows is None:
                 raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"],
                                     STATUS_MESSAGE.get("GET_POST_LIST_FAILED", "get_post_list_failed"))
+
             if isinstance(rows, list) and len(rows) == 0:
                 raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_A_SINGLE_POST"])
 
             data_out = [_augment_row(r) for r in (rows if isinstance(rows, list) else [rows])]
+
             return {
                 "status_code": STATUS_CODE["OK"],
                 "status_message": STATUS_MESSAGE["GET_POST_LIST_SUCCESS"],
                 "data": data_out,
             }
+
         except HTTPException:
+            # 예외를 그대로 전달
             raise
         except Exception:
             raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"],
@@ -133,6 +143,7 @@ class PostsController:
             postContent=post_content,
             attachFilePath=attach_file_path,
         )
+
         if not response_data:
             raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_A_SINGLE_POST"])
 
@@ -143,10 +154,12 @@ class PostsController:
             response_data = await post_model.delete_post(post_id)
             if not response_data:
                 raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_A_SINGLE_POST"])
+
             return {
                 "status_code": STATUS_CODE["CREATED"],
                 "status_message": STATUS_MESSAGE["DELETE_POST_SUCCESS"],
                 "data": response_data,
             }
+
         except HTTPException:
             raise

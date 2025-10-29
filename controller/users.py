@@ -13,15 +13,12 @@ class UsersController:
         if not valid_email(email):
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_EMAIL_FORMAT"], "data": None}})
+
         user_row = await user_model.login_user(email, password)
+
         if not user_row:
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_CREDENTIALS"], "data": None}})
-
-        profile_path = user_row.get("profile_image_path")
-        file_id = user_row.get("file_id")
-        if not profile_path and file_id is not None:
-            profile_path = await user_model.get_profile_image_path(file_id)
 
         return JSONResponse(
             status_code=STATUS_CODE["OK"],
@@ -29,7 +26,7 @@ class UsersController:
                 "userId": user_row.get("userId"),
                 "email": user_row.get("email"),
                 "nickname": user_row.get("nickname"),
-                "profile_path": profile_path,
+                "profile_path": user_row.get("profile_image_path"),
                 "created_at": str(user_row["created_at"]) if user_row.get("created_at") else None,
                 "updated_at": str(user_row["updated_at"]) if user_row.get("updated_at") else None,
                 "deleted_at": str(user_row["deleted_at"]) if user_row.get("deleted_at") else None,
@@ -51,9 +48,11 @@ class UsersController:
         user = await user_model.signup_user(
             email=email, password=password, nickname=nickname, profile_image_path=profile_image_path
         )
+
         if user == "already_exist_email":
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["ALREADY_EXIST_EMAIL"], "data": None}})
+
         if not user or not isinstance(user, dict) or "userId" not in user:
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["FAILED_TO_SIGNUP"], "data": None}})
@@ -74,11 +73,15 @@ class UsersController:
         try:
             if not user_id:
                 raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_USER_ID"])
+
             response_data = await user_model.get_user(user_id)
+
             if response_data is None:
                 raise HTTPException(status_code=STATUS_CODE["NOT_FOUND"], detail=STATUS_MESSAGE["NOT_FOUND_USER"])
+
         except HTTPException:
             raise
+
         except Exception:
             raise HTTPException(status_code=STATUS_CODE["INTERNAL_SERVER_ERROR"],
                                 detail=STATUS_MESSAGE["INTERNAL_SERVER_ERROR"])
@@ -89,10 +92,14 @@ class UsersController:
     async def update_user(self, user_id: int, nickname: str, profile_image_path: Optional[str]):
         if not user_id:
             raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_USER_ID"])
+
         if not nickname:
             raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_NICKNAME"])
+
         req = {"userId": user_id, "nickname": nickname, "profileImagePath": profile_image_path}
+
         res = await user_model.update_user(req)
+
         if res is None:
             raise HTTPException(status_code=STATUS_CODE["NOT_FOUND"], detail=STATUS_MESSAGE["NOT_FOUND_USER"])
         if res == "UPDATE_PROFILE_IMAGE_FAILED":
