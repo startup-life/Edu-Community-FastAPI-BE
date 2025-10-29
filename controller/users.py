@@ -1,4 +1,6 @@
 from typing import Optional
+from uuid import uuid4
+
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from starlette.responses import Response
@@ -9,20 +11,19 @@ from util.constant.httpStatusCode import STATUS_MESSAGE, STATUS_CODE
 from util.validUtil import valid_email, valid_password, valid_nickname
 
 class UsersController:
-    async def login(self, email: str, password: str):
+    async def login(self, email: str, password: str, session_id: Optional[str]):
         if not valid_email(email):
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_EMAIL_FORMAT"], "data": None}})
-        user_row = await user_model.login_user(email, password)
+        session_id = session_id or uuid4().hex
+        user_row = await user_model.login_user(email, password, session_id)
         if not user_row:
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_CREDENTIALS"], "data": None}})
-
         profile_path = user_row.get("profile_image_path")
         file_id = user_row.get("file_id")
         if not profile_path and file_id is not None:
             profile_path = await user_model.get_profile_image_path(file_id)
-
         return JSONResponse(
             status_code=STATUS_CODE["OK"],
             content={"message": STATUS_MESSAGE["LOGIN_SUCCESS"], "data": {
@@ -30,6 +31,7 @@ class UsersController:
                 "email": user_row.get("email"),
                 "nickname": user_row.get("nickname"),
                 "profile_path": profile_path,
+                "sessionId": user_row.get("sessionId"),
                 "created_at": str(user_row["created_at"]) if user_row.get("created_at") else None,
                 "updated_at": str(user_row["updated_at"]) if user_row.get("updated_at") else None,
                 "deleted_at": str(user_row["deleted_at"]) if user_row.get("deleted_at") else None,

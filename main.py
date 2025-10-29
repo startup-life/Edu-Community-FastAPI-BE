@@ -11,6 +11,7 @@ from router.files_router import router as files_router
 from router.posts_router import router as posts_router
 from router.comments_router import router as comments_router
 from collections import deque
+from fastapi.staticfiles import StaticFiles
 
 from database.index import get_connection
 import os

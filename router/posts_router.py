@@ -18,8 +18,9 @@ async def write_post(
     return await _ctl().write_post(user_id, post_title, post_content, attach_file_path)
 
 @router.get("", dependencies=[Depends(is_logged_in)])
-async def get_post_list():
-    return await _ctl().get_post_list()
+async def get_post_list(limit: str = Query(10), offset: str = Query(0)):
+
+    return await _ctl().get_post_list(offset=offset, limit=limit)
 
 @router.get("/{post_id}", dependencies=[Depends(is_logged_in)])
 async def get_post(post_id: int = Path(..., gt=0, description="게시글 ID")):
