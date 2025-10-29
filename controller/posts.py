@@ -10,12 +10,20 @@ def _iso(v):
     if isinstance(v, datetime): return v.isoformat(timespec="seconds")
     return str(v)
 
+"""
+딕셔너리에서 여러 키 후보 중 첫 번째로 값이 존재하는 키의 값을 반환
+- key 후보가 여러 개일 경우 첫 번째로 발견된 값을 반환
+- 값이 없으면 Default 반환
+"""
 def _pick(row: dict, *keys, default=None):
     for k in keys:
         if isinstance(row, dict) and k in row and row[k] is not None:
             return row[k]
     return default
 
+"""
+게시글 조회 시 반환되는 다양한 컬럼명을 일관된 형태로 변환해 클라이언트에 반환하기 위한 정규화 함수
+"""
 def _augment_row(row: dict) -> dict:
     if not isinstance(row, dict):
         return {"raw": str(row)}
@@ -49,6 +57,12 @@ def _augment_row(row: dict) -> dict:
     }
 
 class PostsController:
+    """
+    게시글 작성
+    - 제목 및 본문 유효성 검사
+    - 제목 길이 최대 26자, 본문 길이 최대 1500자
+    - 성공 시 201 반환, 실패 시 적절한 예외 반환
+    """
     async def write_post(
         self,
         user_id: int,

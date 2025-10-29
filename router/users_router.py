@@ -2,7 +2,11 @@ from typing import Optional
 from fastapi import APIRouter, Body, Header, Path, Query
 from controller.users import UsersController
 
-router = APIRouter(prefix="/users", tags=["users"], responses={404: {"description": "Not found"}})
+"""
+prefix="/users" 모든 경로 앞에 /users 추가
+404 응답에 대한 공통 설명 추가
+"""
+router = APIRouter(prefix="/users", responses={404: {"description": "Not found"}})
 
 def _ctl() -> UsersController:
     return UsersController()

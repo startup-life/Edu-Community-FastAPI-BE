@@ -92,7 +92,7 @@ app.add_middleware(TimeoutMiddleware, timeout=15)
 
 app.add_middleware(
     RateLimitMiddleware,
-    requests_limit=5,
+    requests_limit=100,
     time_window=10
 )
 

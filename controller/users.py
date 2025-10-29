@@ -10,6 +10,13 @@ from util.validUtil import valid_email, valid_password, valid_nickname
 
 class UsersController:
     async def login(self, email: str, password: str):
+        """
+        로그인 처리
+        - 이메일 형식 검증
+        - user_model에서 이메일 및 비밀번호로 사용자 조회
+        - 실패 시 400 반환
+        - 성공 시 사용자 정보 반환
+        """
         if not valid_email(email):
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_EMAIL_FORMAT"], "data": None}})
@@ -18,6 +25,7 @@ class UsersController:
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_CREDENTIALS"], "data": None}})
 
+        # 프로필 이미지 경로 조회
         profile_path = user_row.get("profile_image_path")
         file_id = user_row.get("file_id")
         if not profile_path and file_id is not None:
@@ -37,6 +45,13 @@ class UsersController:
         )
 
     async def signup(self, email: str, password: str, nickname: Optional[str], profile_image_path: Optional[str]):
+        """
+        회원가입 처리
+        - 이메일/비밀번호/닉네임 형식 검증
+        - 중복 이메일 검사
+        - user_model호출
+        성공 시 생성된 UserId와 ProfileImageId 반환
+        """
         if not valid_email(email) or not email:
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_EMAIL_FORMAT"], "data": None}})
@@ -66,10 +81,21 @@ class UsersController:
             }},
         )
 
+    """
+    로그아웃 처리
+    - 세션 삭제
+    - 응답 204 반환
+    """
     async def logout(self, user_id: int):
         await user_model.destroy_user_session(user_id)
         return Response(status_code=STATUS_CODE["END"])
 
+    """
+    사용자 정보 조회
+    - user_id 검증
+    - 사용자 없으면 404 반환
+    - 성공 시 JSON 데이터 반환
+    """
     async def get_user(self, user_id: int):
         try:
             if not user_id:
@@ -86,6 +112,11 @@ class UsersController:
         return JSONResponse(status_code=STATUS_CODE["OK"],
                             content={"message": None, "data": jsonable_encoder(response_data)})
 
+    """
+    사용자 정보 수정
+    - 닉네임 또는 프로필 이미지 경로 변경
+    - 프로필 이미지 수정 실패 시 별도 에러 코드 반환
+    """
     async def update_user(self, user_id: int, nickname: str, profile_image_path: Optional[str]):
         if not user_id:
             raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_USER_ID"])
@@ -101,6 +132,11 @@ class UsersController:
         return JSONResponse(status_code=STATUS_CODE["CREATED"],
                             content={"message": STATUS_MESSAGE["UPDATE_USER_DATA_SUCCESS"], "data": None})
 
+    """
+    인증 상태 확인
+    - 사용자 존재 여부 및 ID 일치 여부 확인
+    - 인증 성공 시 사용자 정보 반환
+    """
     async def check_auth(self, user_id: int):
         if not user_id:
             raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_USER_ID"])
@@ -112,15 +148,22 @@ class UsersController:
             raise HTTPException(status_code=STATUS_CODE["UNAUTHORIZED"], detail=STATUS_MESSAGE["REQUIRED_AUTHORIZATION"])
         return JSONResponse(
             status_code=STATUS_CODE["OK"],
+            # file_path, user_id 키 이름 수정
             content={"message": None, "data": {
                 "userId": user_id,
                 "email": user_data[0]["email"],
                 "nickname": user_data[0]["nickname"],
                 "profileImagePath": user_data[0]["file_path"],
+                # authStatus는 상태를 나타내는 값
                 "authStatus": True,
             }},
         )
 
+    """
+    비밀번호 변경
+    - 비밀번호 유효성 검사 후 변경 요청
+    - 변경 실패 시 404 반환
+    """
     async def change_password(self, user_id: int, password: str):
         if not password:
             raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_PASSWORD"])
@@ -130,13 +173,24 @@ class UsersController:
         return JSONResponse(status_code=STATUS_CODE["CREATED"],
                             content={"message": STATUS_MESSAGE["CHANGE_USER_PASSWORD_SUCCESS"], "data": None})
 
+    """
+    이메일 중복 확인
+    - 사용 가능 : 200 반환
+    - 중복 : 400 반환
+    """
     async def check_email(self, email: str):
         res = await user_model.check_email(email)
         if res is False:
             return JSONResponse(status_code=STATUS_CODE["OK"],
                                 content={"message": STATUS_MESSAGE["AVAILABLE_EMAIL"], "data": None})
+        # raise는 에외를 발생 시키는 키워드
         raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["ALREADY_EXIST_EMAIL"])
 
+    """
+    닉네임 중복 확인
+    - 사용 가능 : 200 반환
+    - 중복 : 400 반환
+    """
     async def check_nickname(self, nickname: str):
         res = await user_model.check_nickname(nickname)
         if res is False:
@@ -144,6 +198,11 @@ class UsersController:
                                 content={"message": STATUS_MESSAGE["AVAILABLE_NICKNAME"], "data": None})
         raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["ALREADY_EXIST_NICKNAME"])
 
+    """
+    사용자 삭제
+    - User_id 검증 후 삭제 요청
+    - 실패 시 예외 처리
+    """
     async def delete_user(self, user_id: int):
         try:
             if not user_id:

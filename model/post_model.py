@@ -34,7 +34,9 @@ async def create_post(
                 """,
                 (user_id, nickname, post_title, post_content),
             )
+            # 직전 INSERT된 행의 수와 ID 가져오기 (affected_rows, insert_id)
             affected_rows = cur.rowcount
+            # 직전 INSERT된 행의 ID(생성한 post_id)
             insert_id = cur.lastrowid
 
             if attach_file_path is not None:
@@ -52,20 +54,12 @@ async def create_post(
                         (file_id, insert_id),
                     )
 
-            cur.execute("SELECT @@warning_count AS warningStatus")
-            warning_status = cur.fetchone()["warningStatus"]
-            server_status = getattr(conn, "server_status", 2)
-
             conn.commit()
 
             meta = {
-                "fieldCount": 0,
-                "affectedRows": affected_rows,
                 "insertId": insert_id,
-                "info": "",
-                "serverStatus": server_status,
-                "warningStatus": warning_status,
-                "changedRows": 0,
+                "affectedRows": affected_rows,
+                "filePath": attach_file_path if attach_file_path else None,
             }
             return meta
 
@@ -125,17 +119,12 @@ async def update_post(
             warning_status = int(cur.fetchone()["warningStatus"])
 
         conn.commit()
-        meta: Dict[str, Any] = {
-            "fieldCount": 0,
+        return {
             "affectedRows": matched,
-            "insertId": 0,
-            "info": f"Rows matched: {matched}  Changed: {changed}  Warnings: {warning_status}",
-            "serverStatus": 2,
-            "warningStatus": warning_status,
             "changedRows": changed,
-            "post_id": str(postId),
+            "insertId": 0,
+            "post_id": postId,
         }
-        return meta
 
     except Error as e:
         if conn:

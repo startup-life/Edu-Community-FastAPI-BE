@@ -2,6 +2,11 @@ from database.index import get_connection
 from util.constant.httpStatusCode import STATUS_MESSAGE
 from typing import Dict, Any
 
+"""
+댓글 목록 조회
+- post_id에 해당하는 댓글 리스트 반환
+- 사용자 프로필 이미지 경로 포함
+"""
 async def get_comments(post_id: int) -> list:
     result = []
     try:
@@ -35,7 +40,6 @@ async def write_comment(post_id: int, user_id: int, comment_content: str) -> str
 
             cursor.execute(nickname_sql, (user_id,))
             nickname_sql_result: tuple = cursor.fetchone()
-            print("write_comment 안쪽", nickname_sql_result)
             if not nickname_sql_result:
                 return STATUS_MESSAGE["NOT_FOUND_USER"]
             result_nickname: str = nickname_sql_result["nickname"]
@@ -49,7 +53,6 @@ async def write_comment(post_id: int, user_id: int, comment_content: str) -> str
             )
             post_sql: str = cursor.fetchone()
             if not post_sql:
-                print("post_sql", post_sql)
                 return STATUS_MESSAGE["NOT_FOUND_POST"]
             result_post: str = post_sql["post_id"]
             insert_comment_sql = """
