@@ -111,11 +111,17 @@ app.add_middleware(
 
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))
 
+"""
+모든 사용자 session_id 초기화
+서버 시작 시 기존 로그인 세션을 모두 무효화
+"""
 def init_session_id():
     try:
         sql = """
             UPDATE user_table SET session_id = NULL;
         """
+        # DB 연결 및 커서 생성
+        # with 문을 사용하여 연결과 커서가 자동으로 닫히도록 처리
         with get_connection() as conn, conn.cursor() as cur:
             cur.execute(sql)
             conn.commit()
