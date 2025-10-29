@@ -22,9 +22,10 @@ def _ctl() -> UsersController:
 @router.post("/login")
 async def login(
     email: str = Body(...),
-    password: str = Body(...)
+    password: str = Body(...),
+    session_id: Optional[str] = Body(None)
 ):
-    return await _ctl().login(email=email, password=password)
+    return await _ctl().login(email=email, password=password, session_id=session_id)
 
 @router.post("/signup", status_code=201)
 async def signup(

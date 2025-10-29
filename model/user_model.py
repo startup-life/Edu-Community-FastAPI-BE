@@ -9,7 +9,7 @@ import bcrypt
 SALT_ROUNDS = 10
 
 
-async def login_user(email: str, password: str) -> Optional[Dict]:
+async def login_user(email: str, password: str, session_id: str) -> Optional[Dict]:
     conn = None
     try:
         conn = get_connection()
@@ -17,6 +17,7 @@ async def login_user(email: str, password: str) -> Optional[Dict]:
             user_sql = "SELECT * FROM user_table WHERE email = %s AND deleted_at IS NULL;"
             cur.execute(user_sql, (email,))
             user_row = cur.fetchone()
+
 
             # 사용자가 없으면 None 반환
             if not user_row:
@@ -39,6 +40,9 @@ async def login_user(email: str, password: str) -> Optional[Dict]:
                 if profile_row:
                     profile_image_path = profile_row['file_path']
 
+            session_sql = "UPDATE user_table SET session_id = %s WHERE user_id = %s;"
+            cur.execute(session_sql, (session_id, user_row.get('user_id')))
+
             # 5. 모든 DB 작업이 성공했으므로 변경사항을 확정(commit)
             conn.commit()
 
@@ -47,6 +51,7 @@ async def login_user(email: str, password: str) -> Optional[Dict]:
                 "email": user_row.get('email'),
                 "nickname": user_row.get('nickname'),
                 "profileImagePath": profile_image_path,
+                "sessionId": session_id,
                 "created_at": user_row.get('created_at'),
                 "updated_at": user_row.get('updated_at'),
                 "deleted_at": user_row.get('deleted_at'),
