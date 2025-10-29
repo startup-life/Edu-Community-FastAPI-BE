@@ -11,6 +11,7 @@ from util.constant.httpStatusCode import STATUS_MESSAGE, STATUS_CODE
 from util.validUtil import valid_email, valid_password, valid_nickname
 
 class UsersController:
+    # 로그인 메서드
     async def login(self, email: str, password: str, session_id: Optional[str]):
         if not valid_email(email):
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
@@ -20,23 +21,27 @@ class UsersController:
         if not user_row:
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_CREDENTIALS"], "data": None}})
-        profile_path = user_row.get("profile_image_path")
-        file_id = user_row.get("file_id")
-        if not profile_path and file_id is not None:
-            profile_path = await user_model.get_profile_image_path(file_id)
+
+        """
+        로그인 성공 응답
+        status_code: 200 OK
+        content: 데이터 포맷에 맞춘 JSON 응답
+        """
         return JSONResponse(
             status_code=STATUS_CODE["OK"],
             content={"message": STATUS_MESSAGE["LOGIN_SUCCESS"], "data": {
                 "userId": user_row.get("userId"),
                 "email": user_row.get("email"),
                 "nickname": user_row.get("nickname"),
-                "profile_path": profile_path,
+                "profile_path": user_row.get("profile_image_path"),
                 "sessionId": user_row.get("sessionId"),
                 "created_at": str(user_row["created_at"]) if user_row.get("created_at") else None,
                 "updated_at": str(user_row["updated_at"]) if user_row.get("updated_at") else None,
                 "deleted_at": str(user_row["deleted_at"]) if user_row.get("deleted_at") else None,
             }},
         )
+
+    # 회원가입 메서드
     async def signup(self, email: str, password: str, nickname: Optional[str], profile_image_path: Optional[str]):
         if not valid_email(email) or not email:
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
@@ -44,7 +49,7 @@ class UsersController:
         if not valid_password(password) or not password:
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_PASSWORD_FORMAT"], "data": None}})
-        # 기존 로직 유지(빈 닉네임 금지)
+        # 빈 닉네임 금지
         if (nickname and not valid_nickname(nickname)) or (nickname is None or nickname == ""):
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_NICKNAME_FORMAT"], "data": None}})
@@ -67,10 +72,12 @@ class UsersController:
             }},
         )
 
+    # 로그아웃 메서드
     async def logout(self, user_id: int):
         await user_model.destroy_user_session(user_id)
         return Response(status_code=STATUS_CODE["END"])
 
+    # 사용자 정보 조회 메서드
     async def get_user(self, user_id: int):
         try:
             if not user_id:
@@ -87,6 +94,7 @@ class UsersController:
         return JSONResponse(status_code=STATUS_CODE["OK"],
                             content={"message": None, "data": jsonable_encoder(response_data)})
 
+    # 사용자 정보 수정 메서드
     async def update_user(self, user_id: int, nickname: str, profile_image_path: Optional[str]):
         if not user_id:
             raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_USER_ID"])
@@ -102,6 +110,7 @@ class UsersController:
         return JSONResponse(status_code=STATUS_CODE["CREATED"],
                             content={"message": STATUS_MESSAGE["UPDATE_USER_DATA_SUCCESS"], "data": None})
 
+    # 사용자 인증 상태 확인 메서드
     async def check_auth(self, user_id: int):
         if not user_id:
             raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_USER_ID"])
@@ -122,6 +131,7 @@ class UsersController:
             }},
         )
 
+    # 비밀번호 변경 메서드
     async def change_password(self, user_id: int, password: str):
         if not password:
             raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_PASSWORD"])
@@ -131,6 +141,7 @@ class UsersController:
         return JSONResponse(status_code=STATUS_CODE["CREATED"],
                             content={"message": STATUS_MESSAGE["CHANGE_USER_PASSWORD_SUCCESS"], "data": None})
 
+    # 이메일 중복 확인 메서드
     async def check_email(self, email: str):
         res = await user_model.check_email(email)
         if res is False:
@@ -138,6 +149,7 @@ class UsersController:
                                 content={"message": STATUS_MESSAGE["AVAILABLE_EMAIL"], "data": None})
         raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["ALREADY_EXIST_EMAIL"])
 
+    # 닉네임 중복 확인 메서드
     async def check_nickname(self, nickname: str):
         res = await user_model.check_nickname(nickname)
         if res is False:
@@ -145,6 +157,7 @@ class UsersController:
                                 content={"message": STATUS_MESSAGE["AVAILABLE_NICKNAME"], "data": None})
         raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["ALREADY_EXIST_NICKNAME"])
 
+    # 사용자 삭제 메서드
     async def delete_user(self, user_id: int):
         try:
             if not user_id:

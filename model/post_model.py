@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from pymysql.cursors import DictCursor
 from database.index import get_connection
 
+# 게시글 작성
 async def create_post(
     user_id: int,
     post_title: str,
@@ -16,8 +17,7 @@ async def create_post(
         with conn.cursor(DictCursor) as cur:
             cur.execute(
                 """
-                SELECT nickname
-                FROM user_table
+                SELECT nickname FROM user_table
                 WHERE user_id = %s AND deleted_at IS NULL
                 """,
                 (user_id,),
@@ -29,7 +29,8 @@ async def create_post(
 
             cur.execute(
                 """
-                INSERT INTO post_table (user_id, nickname, post_title, post_content)
+                INSERT INTO post_table 
+                (user_id, nickname, post_title, post_content)
                 VALUES (%s, %s, %s, %s)
                 """,
                 (user_id, nickname, post_title, post_content),
@@ -40,7 +41,8 @@ async def create_post(
             if attach_file_path is not None:
                 cur.execute(
                     """
-                    INSERT INTO file_table (user_id, post_id, file_path, file_category)
+                    INSERT INTO file_table 
+                    (user_id, post_id, file_path, file_category)
                     VALUES (%s, %s, %s, 2)
                     """,
                     (user_id, insert_id, attach_file_path),
@@ -48,36 +50,36 @@ async def create_post(
                 file_id = cur.lastrowid
                 if file_id is not None:
                     cur.execute(
-                        "UPDATE post_table SET file_id = %s WHERE post_id = %s",
+                        """
+                        UPDATE post_table
+                        SET file_id = ?
+                        WHERE post_id = ?;
+                        """,
                         (file_id, insert_id),
                     )
 
-            cur.execute("SELECT @@warning_count AS warningStatus")
-            warning_status = cur.fetchone()["warningStatus"]
-            server_status = getattr(conn, "server_status", 2)
-
             conn.commit()
 
+            """
+            MySQL2 드라이버 문제로 직접 메타 정보 생성
+            """
             meta = {
                 "fieldCount": 0,
                 "affectedRows": affected_rows,
                 "insertId": insert_id,
                 "info": "",
-                "serverStatus": server_status,
-                "warningStatus": warning_status,
                 "changedRows": 0,
             }
             return meta
 
     except Error as e:
-        if conn:
-            conn.rollback()
         print("MySQL error in create_post:", repr(e))
         return STATUS_MESSAGE["INTERNAL_SERVER_ERROR"]
     finally:
         if conn:
             conn.close()
 
+# 게시글 업데이트
 async def update_post(
     postId: int,
     userId: int,
@@ -92,13 +94,11 @@ async def update_post(
             update_post_sql = """
                 UPDATE post_table
                 SET post_title = %s, post_content = %s
-                WHERE post_id = %s
-                  AND deleted_at IS NULL
-                  AND NOT (post_title <=> %s AND post_content <=> %s)
+                WHERE post_id = %s AND deleted_at IS NULL
             """
             cur.execute(
                 update_post_sql,
-                (postTitle, postContent, postId, postTitle, postContent),
+                (postTitle, postContent, postId),
             )
 
             matched = int(cur.rowcount)
@@ -121,17 +121,21 @@ async def update_post(
                     file_id = int(cur.lastrowid)
                     cur.execute("UPDATE post_table SET file_id = %s WHERE post_id = %s", (file_id, postId))
 
-            cur.execute("SELECT @@warning_count AS warningStatus")
-            warning_status = int(cur.fetchone()["warningStatus"])
-
         conn.commit()
+
+        """
+        MySQL2 드라이버 문제로 직접 메타 정보 생성
+        fieldCount는 항상 0으로 반환
+        insertId는 업데이트 시 항상 0으로 반환
+        affectedRows는 매치된 행 수로 반환
+        changedRows는 실제 변경된 행 수로 반환
+        post_id는 업데이트된 게시글 ID로 반환
+        """
         meta: Dict[str, Any] = {
             "fieldCount": 0,
             "affectedRows": matched,
             "insertId": 0,
-            "info": f"Rows matched: {matched}  Changed: {changed}  Warnings: {warning_status}",
             "serverStatus": 2,
-            "warningStatus": warning_status,
             "changedRows": changed,
             "post_id": str(postId),
         }
@@ -146,13 +150,16 @@ async def update_post(
         if conn:
             conn.close()
 
+# 게시글 삭제
 async def delete_post(postId: int) -> bool:
     result = False
     try:
         with get_connection() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                DELETE FROM post_table WHERE POST_ID = %s
+                UPDATE post_table
+                SET deleted_at = NOW()
+                WHERE post_id = %s AND deleted_at IS NULL;
                 """,
                 (postId,),
             )
@@ -163,6 +170,7 @@ async def delete_post(postId: int) -> bool:
         result = False
     return result
 
+# 게시글 목록 조회
 async def get_post_list(offset: int, limit: int) -> list:
     result = []
     try:
@@ -210,6 +218,7 @@ async def get_post_list(offset: int, limit: int) -> list:
         result = []
     return result
 
+# 특정 게시글 조회
 async def get_post(post_id: int) -> tuple[Any, ...] | None:
     post_result = None
     try:
@@ -247,7 +256,6 @@ async def get_post(post_id: int) -> tuple[Any, ...] | None:
             """
             cur.execute(post_sql, (post_id,))
             post_result = cur.fetchone()
-            print(post_result)
 
             if not post_result:
                 return None
@@ -279,7 +287,6 @@ async def get_post(post_id: int) -> tuple[Any, ...] | None:
                 if profile_image_result:
                     post_result["profileImage"] = profile_image_result["file_path"]
 
-                print(post_result)
         return post_result
 
     except Exception as e:

@@ -7,10 +7,12 @@ router = APIRouter()
 def _ctl() -> FilesController:
     return FilesController()
 
+# 게시물 파일 업로드 엔드포인트
 @router.post("/posts/upload/attach-file", status_code=201)
 async def upload_post_file(postFile: UploadFile = File(..., alias="postFile")):
     return await _ctl().upload_post_file(postFile)
 
+# 프로필 이미지 업로드 엔드포인트
 @router.post("/users/upload/profile-image", status_code=201)
 async def upload_profile_image(profileImage: UploadFile = File(..., alias="profileImage")):
     return await _ctl().upload_profile_image(profileImage)
