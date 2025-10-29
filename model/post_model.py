@@ -34,7 +34,9 @@ async def create_post(
                 """,
                 (user_id, nickname, post_title, post_content),
             )
+
             affected_rows = cur.rowcount
+
             insert_id = cur.lastrowid
 
             if attach_file_path is not None:
@@ -107,6 +109,7 @@ async def update_post(
 
             if attachFilePath is None:
                 cur.execute("UPDATE post_table SET file_id = NULL WHERE post_id = %s", (postId,))
+
             elif attachFilePath:
                 cur.execute("SELECT file_id FROM file_table WHERE file_path = %s", (attachFilePath,))
                 row = cur.fetchone()
@@ -121,17 +124,12 @@ async def update_post(
                     file_id = int(cur.lastrowid)
                     cur.execute("UPDATE post_table SET file_id = %s WHERE post_id = %s", (file_id, postId))
 
-            cur.execute("SELECT @@warning_count AS warningStatus")
-            warning_status = int(cur.fetchone()["warningStatus"])
-
         conn.commit()
         meta: Dict[str, Any] = {
             "fieldCount": 0,
             "affectedRows": matched,
             "insertId": 0,
-            "info": f"Rows matched: {matched}  Changed: {changed}  Warnings: {warning_status}",
             "serverStatus": 2,
-            "warningStatus": warning_status,
             "changedRows": changed,
             "post_id": str(postId),
         }

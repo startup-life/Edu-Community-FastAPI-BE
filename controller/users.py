@@ -13,15 +13,12 @@ class UsersController:
         if not valid_email(email):
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_EMAIL_FORMAT"], "data": None}})
+
         user_row = await user_model.login_user(email, password)
+
         if not user_row:
             return JSONResponse(status_code=STATUS_CODE["BAD_REQUEST"],
                                 content={"error": {"message": STATUS_MESSAGE["INVALID_CREDENTIALS"], "data": None}})
-
-        profile_path = user_row.get("profile_image_path")
-        file_id = user_row.get("file_id")
-        if not profile_path and file_id is not None:
-            profile_path = await user_model.get_profile_image_path(file_id)
 
         return JSONResponse(
             status_code=STATUS_CODE["OK"],
@@ -29,7 +26,7 @@ class UsersController:
                 "userId": user_row.get("userId"),
                 "email": user_row.get("email"),
                 "nickname": user_row.get("nickname"),
-                "profile_path": profile_path,
+                "profile_path": user_row.get("profile_image_path"),
                 "created_at": str(user_row["created_at"]) if user_row.get("created_at") else None,
                 "updated_at": str(user_row["updated_at"]) if user_row.get("updated_at") else None,
                 "deleted_at": str(user_row["deleted_at"]) if user_row.get("deleted_at") else None,
@@ -142,19 +139,27 @@ class UsersController:
         if res is False:
             return JSONResponse(status_code=STATUS_CODE["OK"],
                                 content={"message": STATUS_MESSAGE["AVAILABLE_NICKNAME"], "data": None})
+
         raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["ALREADY_EXIST_NICKNAME"])
 
     async def delete_user(self, user_id: int):
         try:
             if not user_id:
                 raise HTTPException(status_code=STATUS_CODE["BAD_REQUEST"], detail=STATUS_MESSAGE["INVALID_USER_ID"])
+
             ok = await user_model.delete_user(user_id=user_id)
+
+            """
+            delete_user가 True면 조건문 건너뛰고 False면 예외 발생
+            """
             if not ok:
                 raise HTTPException(status_code=STATUS_CODE["NOT_FOUND"], detail=STATUS_MESSAGE["NOT_FOUND_USER"])
+
             return JSONResponse(status_code=STATUS_CODE["OK"],
                                 content={"message": STATUS_MESSAGE["DELETE_USER_DATA_SUCCESS"], "data": None})
         except HTTPException:
             raise
+
         except Exception:
             raise HTTPException(status_code=STATUS_CODE["INTERNAL_SERVER_ERROR"],
                                 detail=STATUS_MESSAGE["INTERNAL_SERVER_ERROR"])

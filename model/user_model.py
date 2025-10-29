@@ -34,10 +34,10 @@ async def login_user(email: str, password: str) -> Optional[Dict]:
             profile_image_path = None
             if user_row.get('file_id'):
                 profile_sql = "SELECT file_path FROM file_table WHERE file_id = %s AND deleted_at IS NULL AND file_category = 1;"
-                cur.execute(profile_sql, (user_row[0]['file_id'],))
+                cur.execute(profile_sql, (user_row['file_id'],))
                 profile_row = cur.fetchone()
                 if profile_row:
-                    profile_image_path = profile_row[0]['file_path']
+                    profile_image_path = profile_row['file_path']
 
             # 5. 모든 DB 작업이 성공했으므로 변경사항을 확정(commit)
             conn.commit()
@@ -54,7 +54,6 @@ async def login_user(email: str, password: str) -> Optional[Dict]:
             return user
 
     except pymysql.Error as e:
-        if conn: conn.rollback()
         return None
     finally:
         if conn:
@@ -343,14 +342,17 @@ async def delete_user(user_id: int) -> bool:
     conn = None
     try:
         conn = get_connection()
+
         with conn.cursor() as cur:
             cur.execute("UPDATE user_table SET deleted_at = NOW() WHERE user_id = %s", (user_id,))
             conn.commit()
             return True
+
     except Error as e:
         if conn: conn.rollback()
         print("MySQL error in delete_user:", e)
         return False
+
     finally:
         if conn: conn.close()
 
@@ -359,13 +361,16 @@ async def get_nickname(user_id: int) -> Optional[str]:
     conn = None
     try:
         conn = get_connection()
+
         with conn.cursor() as cur:
             cur.execute("SELECT nickname FROM user_table WHERE user_id = %s", (user_id,))
             row = cur.fetchone()
             return row["nickname"] if row else None
+
     except Error as e:
         if conn: conn.rollback()
         print("MySQL error in get_nickname:", e)
         return None
+
     finally:
         if conn: conn.close()

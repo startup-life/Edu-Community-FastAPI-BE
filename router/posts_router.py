@@ -8,6 +8,7 @@ router = APIRouter(prefix="/posts", tags=["posts"], responses={404: {"descriptio
 def _ctl() -> PostsController:
     return PostsController()
 
+# dependencies로 is_logged_in 사용하여 인증
 @router.post("", status_code=201, dependencies=[Depends(is_logged_in)])
 async def write_post(
     user_id: int = Header(..., alias="userId"),

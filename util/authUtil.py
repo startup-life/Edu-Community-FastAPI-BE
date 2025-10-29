@@ -28,10 +28,12 @@ def is_logged_in(
         row = cursor.fetchone()  # {'session_id': '...'} or None
 
     # 3) 세션 검증
+    # - 세션 정보가 없거나, 요청 헤더에 session이 없거나, DB에 저장된 세션과 헤더의 세션이 불일치 할 경우 인증 실패
     if not row or not session or session != row["session_id"]:
         raise HTTPException(
             status_code=STATUS_CODE["UNAUTHORIZED"],
             detail=STATUS_MESSAGE["REQUIRED_AUTHORIZATION"],
         )
 
+    # 검증 통과시 로그인 상태 반환
     return True

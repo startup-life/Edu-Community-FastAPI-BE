@@ -71,8 +71,10 @@ class PostsController:
             post_content=post_content,
             attach_file_path=attach_file_path,
         )
+
         if response_data == STATUS_MESSAGE["NOT_FOUND_USER"]:
             raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_FOUND_USER"])
+
         if not response_data:
             raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["WRITE_POST_FAILED"])
 
@@ -84,20 +86,28 @@ class PostsController:
     async def get_post_list(self):
         try:
             rows = await post_model.get_post_list()
+
             if rows is None:
                 raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"],
                                     STATUS_MESSAGE.get("GET_POST_LIST_FAILED", "get_post_list_failed"))
+
             if isinstance(rows, list) and len(rows) == 0:
                 raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_A_SINGLE_POST"])
 
+            # 조회 결과(rows)가 단일 dict이든 리스트이든 상관없이 동일한 형태로 처리하기 위해
+            # rows가 리스트이면 그대로 순회하고, 단일 dict이면 [rows]로 감싸 리스트처럼 처리
+            # 각 항목(r)에 대해 _augment_row() 함수를 호출하여 필드명을 통일하고 포맷(날짜 등)을 정규화한 새 dict 생성
             data_out = [_augment_row(r) for r in (rows if isinstance(rows, list) else [rows])]
+
             return {
                 "status_code": STATUS_CODE["OK"],
                 "status_message": STATUS_MESSAGE["GET_POST_LIST_SUCCESS"],
                 "data": data_out,
             }
+
         except HTTPException:
             raise
+
         except Exception:
             raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"],
                                 STATUS_MESSAGE.get("GET_POST_LIST_FAILED", "get_post_list_failed"))
@@ -105,11 +115,15 @@ class PostsController:
     async def get_post(self, post_id: int):
         try:
             response_data = await post_model.get_post(post_id=post_id)
+
             if not response_data:
                 raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_FOUND_POST"])
+
             return {"message": None, "data": response_data}
+
         except HTTPException:
             raise
+
         except Exception:
             raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["GET_POST_FAILED"])
 
@@ -123,6 +137,7 @@ class PostsController:
     ):
         if post_title is not None and len(post_title) > 26:
             raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_POST_TITLE_LENGTH"])
+
         if post_content is not None and len(post_content) > 1500:
             raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_POST_CONTENT_LENGTH"])
 
@@ -133,6 +148,7 @@ class PostsController:
             postContent=post_content,
             attachFilePath=attach_file_path,
         )
+
         if not response_data:
             raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_A_SINGLE_POST"])
 
