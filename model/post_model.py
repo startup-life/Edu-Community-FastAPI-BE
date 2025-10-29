@@ -141,7 +141,9 @@ async def delete_post(postId: int) -> bool:
         with get_connection() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                DELETE FROM post_table WHERE POST_ID = %s
+                UPDATE post_table
+                SET deleted_at = NOW()
+                WHERE post_id = %s AND deleted_at IS NULL;
                 """,
                 (postId,),
             )
