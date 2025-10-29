@@ -7,6 +7,10 @@ from util.constant.httpStatusCode import STATUS_CODE
 from util.constant.httpStatusCode import STATUS_MESSAGE
 from model import user_model  # get_connection: 콜러블(호출 X)
 
+# 인증 검사 함수
+# FastAPI의 Depends로 주입 가능
+# 헤더에서 session과 userid를 추출하여 인증 상태를 확인
+# 성공 시 True 반환, 실패 시 HTTPException 발생
 def is_logged_in(
     session: Optional[str] = Header(None, alias="session"),
     userid: Optional[int] = Header(None, alias="userid"),

@@ -2,6 +2,7 @@ from database.index import get_connection
 from util.constant.httpStatusCode import STATUS_MESSAGE
 from typing import Dict, Any
 
+# 댓글 조회
 async def get_comments(post_id: int) -> list:
     result = []
     try:
@@ -22,7 +23,7 @@ async def get_comments(post_id: int) -> list:
         result = []
     return result
 
-
+# 새로운 댓글 작성
 async def write_comment(post_id: int, user_id: int, comment_content: str) -> str | int | bool:
     result = False
     try:
@@ -73,7 +74,7 @@ async def write_comment(post_id: int, user_id: int, comment_content: str) -> str
         result = False
     return result
 
-
+# 댓글 삭제
 async def delete_comment(post_id: int, comment_id: int, user_id: int):
     result = False
     try:
@@ -127,9 +128,8 @@ async def delete_comment(post_id: int, comment_id: int, user_id: int):
         result = False
     return result
 
-
-async def update_comment(post_id: int, comment_id: int, user_id: int, comment_content: str) -> Dict[
-                                                                                                   str, Any] | str | None:
+# 댓글 수정
+async def update_comment(post_id: int, comment_id: int, user_id: int, comment_content: str) -> Dict[str, Any] | str | None:
     result = False
     try:
         with get_connection() as conn, conn.cursor() as cur:

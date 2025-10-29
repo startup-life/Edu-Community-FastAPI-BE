@@ -9,8 +9,7 @@ from pymysql.cursors import DictCursor
 
 load_dotenv(dotenv_path=".env.dev")
 
-PORT = os.getenv("PORT")
-
+# MySQL 연결 설정
 MYSQL_DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
     "port": int(os.getenv("DB_PORT")),
@@ -19,6 +18,7 @@ MYSQL_DB_CONFIG = {
     "database": os.getenv("DB_DATABASE")
 }
 
+# SQL 로깅 설정
 logger = logging.getLogger("sql")
 if not logger.handlers:
     handler = logging.StreamHandler()
@@ -29,6 +29,7 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 class LoggingCursor(DictCursor):
+    # SQL 실행 시각과 쿼리 로깅
     def execute(self, query, args=None):
         start = perf_counter()
         try:
@@ -38,9 +39,12 @@ class LoggingCursor(DictCursor):
             logger.info("SQL %0.2f ms | %s",
                         elapsed_ms, self.mogrify(query, args).decode() if isinstance(self.mogrify(query, args), bytes) else self.mogrify(query, args))
 
+# MySQL 연결 함수
 def get_connection():
     """MySQL 연결을 반환 (동기, 실행 시각+SQL 로깅)."""
     return pymysql.connect(
+        # **는 파이썬의 딕셔너리 언패킹 문법
+        # MYSQL_DB_CONFIG가 딕셔너리일때 그 안의 키-값 쌍을 인자로 풀어서 전달
         **MYSQL_DB_CONFIG,
         cursorclass=LoggingCursor,
         autocommit=False,

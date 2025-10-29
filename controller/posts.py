@@ -5,17 +5,20 @@ from fastapi.responses import JSONResponse
 from util.constant.httpStatusCode import STATUS_CODE, STATUS_MESSAGE
 from model import post_model
 
+# 입력으로 들어오는 값을 ISO 8601 형식의 문자열로 변환하는 헬퍼 함수
 def _iso(v):
     if v is None: return None
     if isinstance(v, datetime): return v.isoformat(timespec="seconds")
     return str(v)
 
+# 여러 키 중에서 첫 번째로 존재하는 값을 반환하는 헬퍼 함수
 def _pick(row: dict, *keys, default=None):
     for k in keys:
         if isinstance(row, dict) and k in row and row[k] is not None:
             return row[k]
     return default
 
+# 데이터베이스에서 가져온 게시글 데이터를 표준화된 형태로 변환 하는 헬퍼 함수
 def _augment_row(row: dict) -> dict:
     if not isinstance(row, dict):
         return {"raw": str(row)}
@@ -50,6 +53,7 @@ def _augment_row(row: dict) -> dict:
     }
 
 class PostsController:
+    # 새로운 게시물 작성
     async def write_post(
         self,
         user_id: int,
@@ -83,6 +87,7 @@ class PostsController:
             content={"message": STATUS_MESSAGE["WRITE_POST_SUCCESS"], "data": response_data},
         )
 
+    # 게시물 목록 조회
     async def get_post_list(self, offset: str, limit: str):
         if not offset or not limit:
             raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_OFFSET_OR_LIMIT"])
@@ -111,6 +116,7 @@ class PostsController:
             raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"],
                                 STATUS_MESSAGE.get("GET_POST_LIST_FAILED", "get_post_list_failed"))
 
+    # 단일 게시물 조회
     async def get_post(self, post_id: int):
         try:
             response_data = await post_model.get_post(post_id=post_id)
@@ -122,6 +128,7 @@ class PostsController:
             raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["GET_POST_FAILED"])
         return {"message": None, "data": response_data}
 
+    # 게시물 수정
     async def update_post(
         self,
         post_id: int,
@@ -146,6 +153,7 @@ class PostsController:
             raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_A_SINGLE_POST"])
         return {"status_message": STATUS_MESSAGE["UPDATE_POST_SUCCESS"], "data": response_data}
 
+    # 게시물 삭제
     async def delete_post(self, post_id: int):
         try:
             ok = await post_model.delete_post(post_id)

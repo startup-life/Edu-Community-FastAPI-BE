@@ -5,6 +5,7 @@ from util.constant.httpStatusCode import STATUS_CODE, STATUS_MESSAGE
 from model import comment_model
 
 class CommentsController:
+    # 새로운 댓글 작성
     async def write_comment(self, comment_content: str, user_id: int, post_id: int):
         try:
             content = (comment_content or "").strip()
@@ -21,6 +22,7 @@ class CommentsController:
         except Exception:
             raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["WRITE_COMMENT_FAILED"])
 
+    # 댓글 조회
     async def get_comments(self, post_id: int):
         try:
             if not post_id:
@@ -37,6 +39,7 @@ class CommentsController:
         except Exception:
             raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"], STATUS_MESSAGE["GET_COMMENTS_FAILED"])
 
+    # 댓글 수정
     async def update_comment(self, comment_content: str, post_id: int, comment_id: int, user_id: int):
         try:
             if not post_id:
@@ -56,6 +59,7 @@ class CommentsController:
                 content={"message": STATUS_MESSAGE["REQUERED_AUTHORIZATION"], "data": None},
             )
 
+    # 댓글 삭제
     async def delete_comment(self, post_id: int, comment_id: int, user_id: int):
         try:
             if not post_id:
