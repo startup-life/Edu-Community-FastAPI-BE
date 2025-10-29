@@ -92,13 +92,11 @@ async def update_post(
             update_post_sql = """
                 UPDATE post_table
                 SET post_title = %s, post_content = %s
-                WHERE post_id = %s
-                  AND deleted_at IS NULL
-                  AND NOT (post_title <=> %s AND post_content <=> %s)
+                WHERE post_id = %s AND deleted_at IS NULL;
             """
             cur.execute(
                 update_post_sql,
-                (postTitle, postContent, postId, postTitle, postContent),
+                (postTitle, postContent, postId),
             )
 
             matched = int(cur.rowcount)
@@ -121,17 +119,12 @@ async def update_post(
                     file_id = int(cur.lastrowid)
                     cur.execute("UPDATE post_table SET file_id = %s WHERE post_id = %s", (file_id, postId))
 
-            cur.execute("SELECT @@warning_count AS warningStatus")
-            warning_status = int(cur.fetchone()["warningStatus"])
-
         conn.commit()
         meta: Dict[str, Any] = {
             "fieldCount": 0,
             "affectedRows": matched,
             "insertId": 0,
-            "info": f"Rows matched: {matched}  Changed: {changed}  Warnings: {warning_status}",
             "serverStatus": 2,
-            "warningStatus": warning_status,
             "changedRows": changed,
             "post_id": str(postId),
         }
