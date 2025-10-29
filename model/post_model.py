@@ -88,11 +88,10 @@ async def update_post(
                 SET post_title = %s, post_content = %s
                 WHERE post_id = %s
                   AND deleted_at IS NULL
-                  AND NOT (post_title <=> %s AND post_content <=> %s)
             """
             cur.execute(
                 update_post_sql,
-                (postTitle, postContent, postId, postTitle, postContent),
+                (postTitle, postContent, postId),
             )
 
             matched = int(cur.rowcount)
