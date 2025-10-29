@@ -87,6 +87,7 @@ class PostsController:
         if not offset or not limit:
             raise HTTPException(STATUS_CODE["BAD_REQUEST"], STATUS_MESSAGE["INVALID_OFFSET_OR_LIMIT"])
         try:
+            # pagination 파라미터
             offset_int = int(offset, 10)
             limit_int = int(limit, 10)
         except ValueError:

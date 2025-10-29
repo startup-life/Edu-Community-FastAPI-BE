@@ -152,7 +152,9 @@ async def delete_post(postId: int) -> bool:
         with get_connection() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                DELETE FROM post_table WHERE POST_ID = %s
+                UPDATE post_table
+                SET deleted_at = NOW()
+                WHERE post_id = %s AND deleted_at IS NULL;
                 """,
                 (postId,),
             )
@@ -163,6 +165,7 @@ async def delete_post(postId: int) -> bool:
         result = False
     return result
 
+# pagination 추가
 async def get_post_list(offset: int, limit: int) -> list:
     result = []
     try:
@@ -247,7 +250,6 @@ async def get_post(post_id: int) -> tuple[Any, ...] | None:
             """
             cur.execute(post_sql, (post_id,))
             post_result = cur.fetchone()
-            print(post_result)
 
             if not post_result:
                 return None
@@ -279,7 +281,6 @@ async def get_post(post_id: int) -> tuple[Any, ...] | None:
                 if profile_image_result:
                     post_result["profileImage"] = profile_image_result["file_path"]
 
-                print(post_result)
         return post_result
 
     except Exception as e:
