@@ -52,8 +52,8 @@ async def create_post(
                     cur.execute(
                         """
                         UPDATE post_table
-                        SET file_id = ?
-                        WHERE post_id = ?;
+                        SET file_id = %s
+                        WHERE post_id = %s;
                         """,
                         (file_id, insert_id),
                     )
@@ -172,7 +172,7 @@ async def delete_post(postId: int) -> bool:
 
 # 게시글 목록 조회
 async def get_post_list(offset: int, limit: int) -> list:
-    result = []
+    result = None
     try:
         with get_connection() as conn, conn.cursor() as cur:
             cur.execute(
@@ -215,7 +215,7 @@ async def get_post_list(offset: int, limit: int) -> list:
             result = cur.fetchall()
     except Exception as e:
         print("MySQL error in get_post_list:", e)
-        result = []
+        result = None
     return result
 
 # 특정 게시글 조회

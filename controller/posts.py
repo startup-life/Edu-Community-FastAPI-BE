@@ -99,11 +99,17 @@ class PostsController:
 
         try:
             rows = await post_model.get_post_list(offset=offset_int, limit=limit_int)
+
             if rows is None:
                 raise HTTPException(STATUS_CODE["INTERNAL_SERVER_ERROR"],
                                     STATUS_MESSAGE.get("GET_POST_LIST_FAILED", "get_post_list_failed"))
-            if isinstance(rows, list) and len(rows) == 0:
+
+            # 게시물이 하나도 없을 때 처리
+            # rows가 빈 리스트거나 None인 경우 예외 발생
+            # isinstance를 사용하여 rows가 리스트인지 검사
+            if not rows or (isinstance(rows, list) and len(rows) == 0):
                 raise HTTPException(STATUS_CODE["NOT_FOUND"], STATUS_MESSAGE["NOT_A_SINGLE_POST"])
+            # 데이터 변환 rows에 있는 각 행을 _augment_row 함수를 사용하여 변환
             data_out = [_augment_row(r) for r in (rows if isinstance(rows, list) else [rows])]
             return {
                 "status_code": STATUS_CODE["OK"],

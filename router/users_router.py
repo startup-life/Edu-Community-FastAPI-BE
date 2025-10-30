@@ -47,9 +47,9 @@ async def get_user(user_id: int = Path(..., gt=0)):
 
 # 사용자 정보 수정 엔드포인트
 # dependencies를 사용하여 is_logged_in 함수로 인증 검사
-@router.put("/{userId}", dependencies=[Depends(is_logged_in)])
+@router.put("/{user_id}", dependencies=[Depends(is_logged_in)])
 async def update_user(
-    user_id: int = Path(..., alias="userId"),
+    user_id: int = Path(..., alias="user_id"),
     nickname: str = Body(..., alias="nickname"),
     profile_image_path: Optional[str] = Body(None, alias="profileImagePath"),
 ):
@@ -63,10 +63,10 @@ async def check_auth(user_id: int = Header(..., alias="userId")):
 
 # 비밀번호 변경 엔드포인트
 # dependencies를 사용하여 is_logged_in 함수로 인증 검사
-@router.patch("/{userId}/password", dependencies=[Depends(is_logged_in)])
+@router.patch("/{user_id}/password", dependencies=[Depends(is_logged_in)])
 async def change_password(
     password: str = Body(..., embed=True, alias="password"),
-    user_id: int = Path(..., gt=0, alias="userId"),
+    user_id: int = Path(..., gt=0, alias="user_id"),
 ):
     return await _ctl().change_password(user_id, password)
 
